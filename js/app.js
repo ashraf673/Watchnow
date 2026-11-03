@@ -20,35 +20,39 @@ let currentUser = null;
 let currentDeviceId = null;
 let peerConnection = null;
 
+// Status message helper
+function showStatus(msg) {
+  const existing = document.getElementById('status-msg');
+  if (existing) existing.remove();
+  const div = document.createElement('div');
+  div.id = 'status-msg';
+  div.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;background:#1e293b;color:white;padding:12px;border-radius:8px;z-index:9999;font-size:14px;text-align:center;';
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 5000);
+}
+
 // =====================================================
 // Auth
 // =====================================================
 
-// Check for redirect result on page load
-async function handleRedirect() {
-  try {
-    const result = await auth.getRedirectResult();
-    if (result && result.user) {
-      console.log('Login via redirect successful');
-    }
-  } catch (error) {
-    console.error('Redirect result error:', error);
-    alert('Login error: ' + error.message);
-  }
-}
-
-handleRedirect();
+// Set persistence to local
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err => {
+  console.error('Persistence error', err);
+});
 
 googleLoginBtn.addEventListener('click', async () => {
   const provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   try {
     googleLoginBtn.disabled = true;
-    googleLoginBtn.textContent = 'Redirecting...';
-    await auth.signInWithRedirect(provider);
+    googleLoginBtn.textContent = 'Opening Google...';
+    showStatus('Opening Google login...');
+    const result = await auth.signInWithPopup(provider);
+    showStatus('Login success!');
   } catch (error) {
     console.error('Login error:', error);
-    alert('Login failed: ' + error.message);
+    showStatus('Login failed: ' + error.message);
     googleLoginBtn.disabled = false;
     googleLoginBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" /> Continue with Google`;
   }
@@ -56,13 +60,13 @@ googleLoginBtn.addEventListener('click', async () => {
 
 logoutBtn.addEventListener('click', async () => {
   await auth.signOut();
+  showStatus('Logged out');
 });
 
-// Listen for auth state changes
 auth.onAuthStateChanged((user) => {
-  console.log('Auth state changed:', user ? user.email : 'signed out');
   if (user) {
     currentUser = user;
+    showStatus('Welcome ' + (user.email || 'user'));
     showScreen('devices');
     loadDevices();
   } else {
