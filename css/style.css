@@ -91,9 +91,32 @@ body {
   background: #f1f5f9;
 }
 
+.btn-secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
 .btn-primary img {
   width: 22px;
   height: 22px;
+}
+
+.or-divider {
+  margin: 16px 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 16px;
+  text-align: center;
 }
 
 .note {
@@ -229,6 +252,41 @@ body {
 .empty-state small {
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* Settings */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.activation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.activation-code {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  word-break: break-all;
+}
+
+.small-note {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 /* ===== Viewer Screen ===== */
