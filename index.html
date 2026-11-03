@@ -22,7 +22,13 @@
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" />
           Continue with Google
         </button>
-        <p class="note">Use the same Google account on both phones</p>
+        <div class="or-divider">or</div>
+        <button id="activation-login-btn" class="btn btn-secondary">Login with Activation Code</button>
+        <div id="activation-input-box" class="hidden" style="margin-top:16px;">
+          <input type="text" id="activation-code-input" placeholder="Enter activation code" class="input-field" />
+          <button id="activation-submit-btn" class="btn btn-primary" style="margin-top:10px;">Continue</button>
+        </div>
+        <p class="note">First time? Use Google. Later you can use Activation Code.</p>
       </div>
     </div>
 
@@ -30,7 +36,10 @@
     <div id="devices-screen" class="screen hidden">
       <header class="app-header">
         <h2>Watchnow</h2>
-        <button id="logout-btn" class="btn-icon" title="Logout">⎋</button>
+        <div>
+          <button id="settings-btn" class="btn-icon" title="Settings">⚙️</button>
+          <button id="logout-btn" class="btn-icon" title="Logout">⎋</button>
+        </div>
       </header>
 
       <div class="content">
@@ -38,8 +47,28 @@
         <div id="devices-list" class="devices-list">
           <div class="empty-state" id="empty-state">
             <p>No devices found</p>
-            <small>Install HomeLook on another phone and login with the same Google account</small>
+            <small>Install HomeLook on another phone and login with the same account</small>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Screen -->
+    <div id="settings-screen" class="screen hidden">
+      <header class="app-header">
+        <button id="settings-back-btn" class="btn-icon">←</button>
+        <h2>Settings</h2>
+        <div></div>
+      </header>
+      <div class="content">
+        <div class="section-title">Account Information</div>
+        <div class="card">
+          <div class="label">Activation Code</div>
+          <div class="activation-row">
+            <span id="activation-code-display" class="activation-code">Loading...</span>
+            <button id="copy-code-btn" class="btn-icon" title="Copy">📋</button>
+          </div>
+          <p class="small-note">Save this code safely. You can use it to login on other devices without Google.</p>
         </div>
       </div>
     </div>
