@@ -24,12 +24,22 @@ let peerConnection = null;
 // Auth
 // =====================================================
 
+// Handle redirect result (important for mobile)
+auth.getRedirectResult().then((result) => {
+  if (result.user) {
+    console.log('Redirect login success');
+  }
+}).catch((error) => {
+  console.error('Redirect error:', error);
+  alert('Login error: ' + error.message);
+});
+
 googleLoginBtn.addEventListener('click', async () => {
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
     googleLoginBtn.disabled = true;
-    googleLoginBtn.textContent = 'Signing in...';
-    await auth.signInWithPopup(provider);
+    googleLoginBtn.textContent = 'Redirecting...';
+    await auth.signInWithRedirect(provider);
   } catch (error) {
     console.error('Login error:', error);
     alert('Login failed: ' + error.message);
