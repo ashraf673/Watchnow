@@ -24,18 +24,24 @@ let peerConnection = null;
 // Auth
 // =====================================================
 
-// Handle redirect result (important for mobile)
-auth.getRedirectResult().then((result) => {
-  if (result.user) {
-    console.log('Redirect login success');
+// Check for redirect result on page load
+async function handleRedirect() {
+  try {
+    const result = await auth.getRedirectResult();
+    if (result && result.user) {
+      console.log('Login via redirect successful');
+    }
+  } catch (error) {
+    console.error('Redirect result error:', error);
+    alert('Login error: ' + error.message);
   }
-}).catch((error) => {
-  console.error('Redirect error:', error);
-  alert('Login error: ' + error.message);
-});
+}
+
+handleRedirect();
 
 googleLoginBtn.addEventListener('click', async () => {
   const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
   try {
     googleLoginBtn.disabled = true;
     googleLoginBtn.textContent = 'Redirecting...';
@@ -52,7 +58,9 @@ logoutBtn.addEventListener('click', async () => {
   await auth.signOut();
 });
 
+// Listen for auth state changes
 auth.onAuthStateChanged((user) => {
+  console.log('Auth state changed:', user ? user.email : 'signed out');
   if (user) {
     currentUser = user;
     showScreen('devices');
@@ -100,7 +108,6 @@ function loadDevices() {
 function renderDevices(devices) {
   const deviceIds = Object.keys(devices);
 
-  // Clear previous device cards (keep empty state)
   const cards = devicesList.querySelectorAll('.device-card');
   cards.forEach(card => card.remove());
 
@@ -130,13 +137,11 @@ function renderDevices(devices) {
       </div>
     `;
 
-    // Camera button
     card.querySelector('[data-action="camera"]').addEventListener('click', (e) => {
       e.stopPropagation();
       openViewer(deviceId, device.name || 'Device');
     });
 
-    // Location button (placeholder for now)
     card.querySelector('[data-action="location"]').addEventListener('click', (e) => {
       e.stopPropagation();
       alert('Location feature will be added soon');
@@ -157,8 +162,6 @@ function openViewer(deviceId, deviceName) {
   noStream.style.display = 'flex';
   noStream.innerHTML = '<p>Connecting to device...</p>';
 
-  // TODO: Start WebRTC connection here
-  // For now just show placeholder
   setTimeout(() => {
     noStream.innerHTML = '<p>Waiting for HomeLook app...<br><small>WebRTC connection will be added next</small></p>';
   }, 1500);
