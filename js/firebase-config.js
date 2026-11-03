@@ -1,17 +1,15 @@
 // =====================================================
 // Firebase Configuration
 // =====================================================
-// TODO: Replace these values with your own Firebase project config
-// Go to Firebase Console → Project Settings → Your apps → Web app
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBvvci69O5aGl6G2BKyqi2pMV3YJWxQrYk",
+  authDomain: "watchnow-a43d8.firebaseapp.com",
+  databaseURL: "https://watchnow-a43d8-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "watchnow-a43d8",
+  storageBucket: "watchnow-a43d8.firebasestorage.app",
+  messagingSenderId: "698409253921",
+  appId: "1:698409253921:web:d6f70270d7977eef3af760"
 };
 
 // Initialize Firebase
