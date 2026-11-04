@@ -42,7 +42,6 @@ function showStatus(msg) {
   setTimeout(() => div.remove(), 4000);
 }
 
-// Generate unique activation code
 function generateActivationCode() {
   return 'WN-' + Math.random().toString(36).substring(2, 10).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
 }
@@ -115,7 +114,7 @@ activationSubmitBtn.addEventListener('click', async () => {
     if (snap.exists()) {
       const data = snap.val();
       currentUid = data.uid;
-      currentUser = { uid: currentUid }; // virtual user
+      currentUser = { uid: currentUid };
       localStorage.setItem('watchnow_uid', currentUid);
       showStatus('Login successful');
       showScreen('devices');
@@ -131,7 +130,6 @@ activationSubmitBtn.addEventListener('click', async () => {
   activationSubmitBtn.textContent = 'Continue';
 });
 
-// Restore activation login on page load
 const savedUid = localStorage.getItem('watchnow_uid');
 if (savedUid) {
   currentUid = savedUid;
@@ -224,44 +222,150 @@ function renderDevices(devices) {
   const cards = devicesList.querySelectorAll('.device-card');
   cards.forEach(card => card.remove());
 
-  if (deviceIds.length === 0) {
+  // Remove old disabled section if any
+  const oldDisabled = document.getElementById('disabled-section');
+  if (oldDisabled) oldDisabled.remove();
+
+  const activeDevices = [];
+  const disabledDevices = [];
+
+  deviceIds.forEach(id => {
+    if (devices[id].disabled) {
+      disabledDevices.push({ id, ...devices[id] });
+    } else {
+      activeDevices.push({ id, ...devices[id] });
+    }
+  });
+
+  if (activeDevices.length === 0 && disabledDevices.length === 0) {
     emptyState.style.display = 'block';
     return;
   }
 
   emptyState.style.display = 'none';
 
-  deviceIds.forEach((deviceId) => {
-    const device = devices[deviceId];
-    const card = document.createElement('div');
-    card.className = 'device-card';
-
-    const lastSeen = device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Unknown';
-    const status = device.online ? '🟢 Online' : '⚫ Offline';
-
-    card.innerHTML = `
-      <div class="device-info">
-        <h3>${device.name || 'Unknown Device'}</h3>
-        <p>${status} • ${lastSeen}</p>
-      </div>
-      <div class="device-actions">
-        <button class="action-btn" data-action="camera" data-id="${deviceId}" title="Live Camera">📷</button>
-        <button class="action-btn" data-action="location" data-id="${deviceId}" title="Location">📍</button>
-      </div>
-    `;
-
-    card.querySelector('[data-action="camera"]').addEventListener('click', (e) => {
-      e.stopPropagation();
-      openViewer(deviceId, device.name || 'Device');
-    });
-
-    card.querySelector('[data-action="location"]').addEventListener('click', (e) => {
-      e.stopPropagation();
-      alert('Location feature will be added soon');
-    });
-
-    devicesList.appendChild(card);
+  // Active devices
+  activeDevices.forEach(device => {
+    devicesList.appendChild(createDeviceCard(device, false));
   });
+
+  // Disabled section
+  if (disabledDevices.length > 0) {
+    const section = document.createElement('div');
+    section.id = 'disabled-section';
+    section.innerHTML = `<div class="section-title" style="margin-top:24px;">Disabled Devices</div>`;
+    devicesList.appendChild(section);
+
+    disabledDevices.forEach(device => {
+      devicesList.appendChild(createDeviceCard(device, true));
+    });
+  }
+}
+
+function createDeviceCard(device, isDisabled) {
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  if (isDisabled) card.style.opacity = '0.6';
+
+  const lastSeen = device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Unknown';
+  const status = isDisabled ? 'Disabled' : (device.online ? '🟢 Online' : '⚫ Offline');
+
+  card.innerHTML = `
+    <div class="device-info">
+      <h3>${device.name || 'Unknown Device'}</h3>
+      <p>${status} • ${lastSeen}</p>
+    </div>
+    <div class="device-actions">
+      ${isDisabled ? '' : `
+        <button class="action-btn" data-action="camera" title="Live Camera">📷</button>
+        <button class="action-btn" data-action="location" title="Location">📍</button>
+      `}
+      <button class="action-btn menu-btn" title="More">⋮</button>
+    </div>
+  `;
+
+  // Camera
+  const camBtn = card.querySelector('[data-action="camera"]');
+  if (camBtn) {
+    camBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openViewer(device.id, device.name || 'Device');
+    });
+  }
+
+  // Location
+  const locBtn = card.querySelector('[data-action="location"]');
+  if (locBtn) {
+    locBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      alert('Location feature coming soon');
+    });
+  }
+
+  // Three-dot menu
+  const menuBtn = card.querySelector('.menu-btn');
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showDeviceMenu(device.id, device.name, isDisabled);
+  });
+
+  return card;
+}
+
+function showDeviceMenu(deviceId, deviceName, isDisabled) {
+  const existing = document.getElementById('device-menu');
+  if (existing) existing.remove();
+
+  const menu = document.createElement('div');
+  menu.id = 'device-menu';
+  menu.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1e293b;border-radius:12px;padding:8px 0;z-index:10000;min-width:200px;box-shadow:0 4px 20px rgba(0,0,0,0.4);';
+
+  const options = isDisabled
+    ? [{ label: 'Enable Device', action: 'enable' }, { label: 'Delete Device', action: 'delete' }]
+    : [{ label: 'Disable Device', action: 'disable' }, { label: 'Delete Device', action: 'delete' }];
+
+  options.forEach(opt => {
+    const item = document.createElement('div');
+    item.textContent = opt.label;
+    item.style.cssText = 'padding:14px 20px;cursor:pointer;font-size:15px;';
+    item.onclick = () => {
+      menu.remove();
+      if (opt.action === 'delete') deleteDevice(deviceId, deviceName);
+      if (opt.action === 'disable') setDeviceDisabled(deviceId, true);
+      if (opt.action === 'enable') setDeviceDisabled(deviceId, false);
+    };
+    menu.appendChild(item);
+  });
+
+  const cancel = document.createElement('div');
+  cancel.textContent = 'Cancel';
+  cancel.style.cssText = 'padding:14px 20px;cursor:pointer;color:#94a3b8;border-top:1px solid #334155;';
+  cancel.onclick = () => menu.remove();
+  menu.appendChild(cancel);
+
+  document.body.appendChild(menu);
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function close() {
+      menu.remove();
+      document.removeEventListener('click', close);
+    }, { once: true });
+  }, 100);
+}
+
+function deleteDevice(deviceId, deviceName) {
+  if (!confirm(`Permanently delete "${deviceName}"?\n\nThis device will never reconnect to your account.`)) return;
+
+  database.ref(`users/${currentUid}/devices/${deviceId}`).remove()
+    .then(() => showStatus('Device deleted'))
+    .catch(err => showStatus('Error: ' + err.message));
+}
+
+function setDeviceDisabled(deviceId, disabled) {
+  database.ref(`users/${currentUid}/devices/${deviceId}/disabled`).set(disabled)
+    .then(() => showStatus(disabled ? 'Device disabled' : 'Device enabled'))
+    .catch(err => showStatus('Error: ' + err.message));
 }
 
 // =====================================================
@@ -276,7 +380,7 @@ function openViewer(deviceId, deviceName) {
   noStream.innerHTML = '<p>Connecting to device...</p>';
 
   setTimeout(() => {
-    noStream.innerHTML = '<p>Waiting for HomeLook app...<br><small>WebRTC connection will be added next</small></p>';
+    noStream.innerHTML = '<p>Waiting for Partypark app...<br><small>WebRTC connection will be added next</small></p>';
   }, 1500);
 }
 
