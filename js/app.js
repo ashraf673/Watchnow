@@ -308,7 +308,7 @@ function createDeviceCard(device, isDisabled) {
   if (locBtn) {
     locBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      alert('Location feature coming soon');
+      showLocation(device.id);
     });
   }
 
@@ -319,6 +319,19 @@ function createDeviceCard(device, isDisabled) {
   });
 
   return card;
+}
+
+function showLocation(deviceId) {
+  if (!currentUid) return;
+  database.ref(`users/${currentUid}/devices/${deviceId}/location`).once('value').then(snap => {
+    const loc = snap.val();
+    if (loc && loc.lat && loc.lng) {
+      const url = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
+      window.open(url, '_blank');
+    } else {
+      showStatus('No location available yet');
+    }
+  }).catch(() => showStatus('Failed to load location'));
 }
 
 function showDeviceMenu(deviceId, deviceName, isDisabled) {
@@ -448,7 +461,6 @@ async function startWebRTC(deviceId) {
       try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
-        // Flush pending candidates
         for (const cand of pendingSenderCandidates) {
           try { await peerConnection.addIceCandidate(cand); } catch (e) { console.error(e); }
         }
@@ -507,5 +519,7 @@ function stopViewer() {
 document.getElementById('switch-camera-btn').addEventListener('click', () => alert('Switch Camera - coming soon'));
 document.getElementById('flashlight-btn').addEventListener('click', () => alert('Flashlight - coming soon'));
 document.getElementById('mic-btn').addEventListener('click', () => alert('Mic - coming soon'));
-document.getElementById('location-btn').addEventListener('click', () => alert('Location - coming soon'));
+document.getElementById('location-btn').addEventListener('click', () => {
+  if (currentDeviceId) showLocation(currentDeviceId);
+});
 document.getElementById('camera-off-btn').addEventListener('click', () => alert('Camera Off - coming soon'));
