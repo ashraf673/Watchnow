@@ -32,6 +32,8 @@ let peerConnection = null;
 let signalingRef = null;
 let inboundStream = null;
 let pendingSenderCandidates = [];
+let micEnabled = true;
+let cameraEnabled = true;
 
 function showStatus(msg) {
   const existing = document.getElementById('status-msg');
@@ -54,6 +56,12 @@ function generateQR(code) {
   QRCode.toCanvas(canvas, code, { width: 200, margin: 2 }, function (error) {
     if (error) console.error(error);
   });
+}
+
+function sendCommand(command) {
+  if (!currentDeviceId) return;
+  database.ref(`commands/${currentDeviceId}`).push(command);
+  showStatus(command.replace('_', ' '));
 }
 
 // =====================================================
@@ -401,6 +409,8 @@ async function openViewer(deviceId, deviceName) {
   noStream.innerHTML = '<p>Connecting to device...</p>';
   inboundStream = new MediaStream();
   pendingSenderCandidates = [];
+  micEnabled = true;
+  cameraEnabled = true;
 
   await startWebRTC(deviceId);
 }
@@ -516,10 +526,16 @@ function stopViewer() {
   noStream.innerHTML = '<p>Disconnected</p>';
 }
 
-document.getElementById('switch-camera-btn').addEventListener('click', () => alert('Switch Camera - coming soon'));
-document.getElementById('flashlight-btn').addEventListener('click', () => alert('Flashlight - coming soon'));
-document.getElementById('mic-btn').addEventListener('click', () => alert('Mic - coming soon'));
+document.getElementById('switch-camera-btn').addEventListener('click', () => sendCommand('switch_camera'));
+document.getElementById('flashlight-btn').addEventListener('click', () => sendCommand('flashlight'));
+document.getElementById('mic-btn').addEventListener('click', () => {
+  micEnabled = !micEnabled;
+  sendCommand(micEnabled ? 'mic_on' : 'mic_off');
+});
 document.getElementById('location-btn').addEventListener('click', () => {
   if (currentDeviceId) showLocation(currentDeviceId);
 });
-document.getElementById('camera-off-btn').addEventListener('click', () => alert('Camera Off - coming soon'));
+document.getElementById('camera-off-btn').addEventListener('click', () => {
+  cameraEnabled = !cameraEnabled;
+  sendCommand(cameraEnabled ? 'camera_on' : 'camera_off');
+});
