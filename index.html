@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="css/style.css" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0f172a" />
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
   <div id="app">
@@ -47,7 +48,7 @@
         <div id="devices-list" class="devices-list">
           <div class="empty-state" id="empty-state">
             <p>No devices found</p>
-            <small>Install HomeLook on another phone and login with the same account</small>
+            <small>Install Partypark on another phone and activate with your code</small>
           </div>
         </div>
       </div>
@@ -69,6 +70,10 @@
             <button id="copy-code-btn" class="btn-icon" title="Copy">📋</button>
           </div>
           <p class="small-note">Save this code safely. You can use it to login on other devices without Google.</p>
+          <div id="qr-container" style="margin-top:20px; text-align:center;">
+            <canvas id="activation-qr"></canvas>
+            <p class="small-note">Scan this QR with Partypark app</p>
+          </div>
         </div>
       </div>
     </div>
