@@ -30,6 +30,8 @@ let currentUid = null;
 let currentDeviceId = null;
 let peerConnection = null;
 let signalingRef = null;
+let inboundStream = null;
+let pendingSenderCandidates = [];
 
 function showStatus(msg) {
   const existing = document.getElementById('status-msg');
@@ -384,6 +386,8 @@ async function openViewer(deviceId, deviceName) {
   showScreen('viewer');
   noStream.style.display = 'flex';
   noStream.innerHTML = '<p>Connecting to device...</p>';
+  inboundStream = new MediaStream();
+  pendingSenderCandidates = [];
 
   await startWebRTC(deviceId);
 }
@@ -399,9 +403,31 @@ async function startWebRTC(deviceId) {
   peerConnection = new RTCPeerConnection(configuration);
 
   peerConnection.ontrack = (event) => {
-    console.log('Track received');
-    remoteVideo.srcObject = event.streams[0];
-    noStream.style.display = 'none';
+    console.log('Track received:', event.track.kind, 'Streams:', event.streams.length);
+
+    if (event.streams && event.streams[0]) {
+      remoteVideo.srcObject = event.streams[0];
+    } else {
+      const alreadyAdded = inboundStream.getTracks().some(t => t.id === event.track.id);
+      if (!alreadyAdded) {
+        inboundStream.addTrack(event.track);
+      }
+      remoteVideo.srcObject = inboundStream;
+    }
+
+    event.track.onunmute = () => {
+      noStream.style.display = 'none';
+      remoteVideo.play().catch(err => console.warn('Playback blocked:', err));
+    };
+  };
+
+  peerConnection.onconnectionstatechange = () => {
+    console.log('Connection state:', peerConnection.connectionState);
+    if (peerConnection.connectionState === 'connected') {
+      showStatus('Live');
+    } else if (peerConnection.connectionState === 'failed') {
+      showStatus('Connection failed');
+    }
   };
 
   peerConnection.onicecandidate = (event) => {
@@ -421,13 +447,20 @@ async function startWebRTC(deviceId) {
     if (offer && peerConnection && !peerConnection.currentRemoteDescription) {
       try {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+        // Flush pending candidates
+        for (const cand of pendingSenderCandidates) {
+          try { await peerConnection.addIceCandidate(cand); } catch (e) { console.error(e); }
+        }
+        pendingSenderCandidates = [];
+
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         await signalingRef.child('answer').set({
           type: answer.type,
           sdp: answer.sdp
         });
-        showStatus('Connected');
+        showStatus('Answer sent — waiting for media');
       } catch (err) {
         console.error('WebRTC error', err);
         showStatus('Connection error');
@@ -437,14 +470,20 @@ async function startWebRTC(deviceId) {
 
   signalingRef.child('senderCandidates').on('child_added', (snap) => {
     const data = snap.val();
-    if (data && peerConnection) {
-      const candidate = new RTCIceCandidate({
-        sdpMid: data.sdpMid,
-        sdpMLineIndex: data.sdpMLineIndex,
-        candidate: data.sdp
-      });
-      peerConnection.addIceCandidate(candidate).catch(console.error);
+    if (!data || !peerConnection) return;
+
+    const candidate = new RTCIceCandidate({
+      sdpMid: data.sdpMid,
+      sdpMLineIndex: data.sdpMLineIndex,
+      candidate: data.sdp
+    });
+
+    if (!peerConnection.remoteDescription) {
+      pendingSenderCandidates.push(candidate);
+      return;
     }
+
+    peerConnection.addIceCandidate(candidate).catch(console.error);
   });
 }
 
@@ -458,6 +497,8 @@ function stopViewer() {
     signalingRef = null;
   }
   remoteVideo.srcObject = null;
+  inboundStream = null;
+  pendingSenderCandidates = [];
   currentDeviceId = null;
   noStream.style.display = 'flex';
   noStream.innerHTML = '<p>Disconnected</p>';
