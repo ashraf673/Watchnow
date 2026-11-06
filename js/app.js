@@ -30,7 +30,6 @@ let currentUid = null;
 let currentDeviceId = null;
 let peerConnection = null;
 
-// Status message helper
 function showStatus(msg) {
   const existing = document.getElementById('status-msg');
   if (existing) existing.remove();
@@ -44,6 +43,14 @@ function showStatus(msg) {
 
 function generateActivationCode() {
   return 'WN-' + Math.random().toString(36).substring(2, 10).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
+function generateQR(code) {
+  const canvas = document.getElementById('activation-qr');
+  if (!canvas || !code) return;
+  QRCode.toCanvas(canvas, code, { width: 200, margin: 2 }, function (error) {
+    if (error) console.error(error);
+  });
 }
 
 // =====================================================
@@ -72,6 +79,7 @@ auth.onAuthStateChanged(async (user) => {
   if (user) {
     currentUser = user;
     currentUid = user.uid;
+    localStorage.setItem('watchnow_uid', currentUid);
     await ensureActivationCode(user.uid);
     showScreen('devices');
     loadDevices();
@@ -130,6 +138,7 @@ activationSubmitBtn.addEventListener('click', async () => {
   activationSubmitBtn.textContent = 'Continue';
 });
 
+// Restore previous session
 const savedUid = localStorage.getItem('watchnow_uid');
 if (savedUid) {
   currentUid = savedUid;
@@ -161,7 +170,11 @@ settingsBtn.addEventListener('click', async () => {
   showScreen('settings');
   if (currentUid) {
     const snap = await database.ref(`users/${currentUid}/activationCode`).once('value');
-    activationCodeDisplay.textContent = snap.val() || 'Not found';
+    const code = snap.val() || 'Not found';
+    activationCodeDisplay.textContent = code;
+    if (code && code !== 'Not found') {
+      generateQR(code);
+    }
   }
 });
 
@@ -222,7 +235,6 @@ function renderDevices(devices) {
   const cards = devicesList.querySelectorAll('.device-card');
   cards.forEach(card => card.remove());
 
-  // Remove old disabled section if any
   const oldDisabled = document.getElementById('disabled-section');
   if (oldDisabled) oldDisabled.remove();
 
@@ -244,12 +256,10 @@ function renderDevices(devices) {
 
   emptyState.style.display = 'none';
 
-  // Active devices
   activeDevices.forEach(device => {
     devicesList.appendChild(createDeviceCard(device, false));
   });
 
-  // Disabled section
   if (disabledDevices.length > 0) {
     const section = document.createElement('div');
     section.id = 'disabled-section';
@@ -284,7 +294,6 @@ function createDeviceCard(device, isDisabled) {
     </div>
   `;
 
-  // Camera
   const camBtn = card.querySelector('[data-action="camera"]');
   if (camBtn) {
     camBtn.addEventListener('click', (e) => {
@@ -293,7 +302,6 @@ function createDeviceCard(device, isDisabled) {
     });
   }
 
-  // Location
   const locBtn = card.querySelector('[data-action="location"]');
   if (locBtn) {
     locBtn.addEventListener('click', (e) => {
@@ -302,7 +310,6 @@ function createDeviceCard(device, isDisabled) {
     });
   }
 
-  // Three-dot menu
   const menuBtn = card.querySelector('.menu-btn');
   menuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -345,7 +352,6 @@ function showDeviceMenu(deviceId, deviceName, isDisabled) {
 
   document.body.appendChild(menu);
 
-  // Close on outside click
   setTimeout(() => {
     document.addEventListener('click', function close() {
       menu.remove();
@@ -393,7 +399,6 @@ function stopViewer() {
   currentDeviceId = null;
 }
 
-// Control buttons placeholders
 document.getElementById('switch-camera-btn').addEventListener('click', () => alert('Switch Camera - coming soon'));
 document.getElementById('flashlight-btn').addEventListener('click', () => alert('Flashlight - coming soon'));
 document.getElementById('mic-btn').addEventListener('click', () => alert('Mic - coming soon'));
