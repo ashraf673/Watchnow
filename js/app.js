@@ -29,6 +29,7 @@ let currentUser = null;
 let currentUid = null;
 let currentDeviceId = null;
 let peerConnection = null;
+let signalingRef = null;
 
 function showStatus(msg) {
   const existing = document.getElementById('status-msg');
@@ -138,7 +139,6 @@ activationSubmitBtn.addEventListener('click', async () => {
   activationSubmitBtn.textContent = 'Continue';
 });
 
-// Restore previous session
 const savedUid = localStorage.getItem('watchnow_uid');
 if (savedUid) {
   currentUid = savedUid;
@@ -375,19 +375,56 @@ function setDeviceDisabled(deviceId, disabled) {
 }
 
 // =====================================================
-// Live Viewer (Placeholder)
+// Live Viewer (WebRTC)
 // =====================================================
 
-function openViewer(deviceId, deviceName) {
+async function openViewer(deviceId, deviceName) {
   currentDeviceId = deviceId;
   viewerTitle.textContent = deviceName;
   showScreen('viewer');
   noStream.style.display = 'flex';
   noStream.innerHTML = '<p>Connecting to device...</p>';
 
-  setTimeout(() => {
-    noStream.innerHTML = '<p>Waiting for Partypark app...<br><small>WebRTC connection will be added next</small></p>';
-  }, 1500);
+  await startWebRTC(deviceId);
+}
+
+async function startWebRTC(deviceId) {
+  const configuration = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' }
+    ]
+  };
+
+  peerConnection = new RTCPeerConnection(configuration);
+
+  peerConnection.ontrack = (event) => {
+    remoteVideo.srcObject = event.streams[0];
+    noStream.style.display = 'none';
+  };
+
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      database.ref(`signaling/${deviceId}/viewerCandidates`).push(event.candidate.toJSON());
+    }
+  };
+
+  // Listen for offer from Partypark
+  signalingRef = database.ref(`signaling/${deviceId}`);
+  signalingRef.child('offer').on('value', async (snap) => {
+    const offer = snap.val();
+    if (offer && peerConnection) {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      signalingRef.child('answer').set(answer);
+    }
+  });
+
+  // Listen for ICE candidates from Partypark
+  signalingRef.child('senderCandidates').on('child_added', (snap) => {
+    const candidate = new RTCIceCandidate(snap.val());
+    peerConnection.addIceCandidate(candidate).catch(console.error);
+  });
 }
 
 function stopViewer() {
@@ -395,8 +432,14 @@ function stopViewer() {
     peerConnection.close();
     peerConnection = null;
   }
+  if (signalingRef) {
+    signalingRef.off();
+    signalingRef = null;
+  }
   remoteVideo.srcObject = null;
   currentDeviceId = null;
+  noStream.style.display = 'flex';
+  noStream.innerHTML = '<p>Disconnected</p>';
 }
 
 document.getElementById('switch-camera-btn').addEventListener('click', () => alert('Switch Camera - coming soon'));
