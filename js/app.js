@@ -391,39 +391,60 @@ async function openViewer(deviceId, deviceName) {
 async function startWebRTC(deviceId) {
   const configuration = {
     iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' }
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
     ]
   };
 
   peerConnection = new RTCPeerConnection(configuration);
 
   peerConnection.ontrack = (event) => {
+    console.log('Track received');
     remoteVideo.srcObject = event.streams[0];
     noStream.style.display = 'none';
   };
 
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
-      database.ref(`signaling/${deviceId}/viewerCandidates`).push(event.candidate.toJSON());
+      database.ref(`signaling/${deviceId}/viewerCandidates`).push({
+        sdpMid: event.candidate.sdpMid,
+        sdpMLineIndex: event.candidate.sdpMLineIndex,
+        sdp: event.candidate.candidate
+      });
     }
   };
 
-  // Listen for offer from Partypark
   signalingRef = database.ref(`signaling/${deviceId}`);
+
   signalingRef.child('offer').on('value', async (snap) => {
     const offer = snap.val();
-    if (offer && peerConnection) {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-      signalingRef.child('answer').set(answer);
+    if (offer && peerConnection && !peerConnection.currentRemoteDescription) {
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        await signalingRef.child('answer').set({
+          type: answer.type,
+          sdp: answer.sdp
+        });
+        showStatus('Connected');
+      } catch (err) {
+        console.error('WebRTC error', err);
+        showStatus('Connection error');
+      }
     }
   });
 
-  // Listen for ICE candidates from Partypark
   signalingRef.child('senderCandidates').on('child_added', (snap) => {
-    const candidate = new RTCIceCandidate(snap.val());
-    peerConnection.addIceCandidate(candidate).catch(console.error);
+    const data = snap.val();
+    if (data && peerConnection) {
+      const candidate = new RTCIceCandidate({
+        sdpMid: data.sdpMid,
+        sdpMLineIndex: data.sdpMLineIndex,
+        candidate: data.sdp
+      });
+      peerConnection.addIceCandidate(candidate).catch(console.error);
+    }
   });
 }
 
