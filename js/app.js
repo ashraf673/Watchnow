@@ -32,7 +32,6 @@ let peerConnection = null;
 let signalingRef = null;
 let inboundStream = null;
 let pendingSenderCandidates = [];
-let micEnabled = true;
 let cameraEnabled = true;
 
 function showStatus(msg) {
@@ -409,7 +408,6 @@ async function openViewer(deviceId, deviceName) {
   noStream.innerHTML = '<p>Connecting to device...</p>';
   inboundStream = new MediaStream();
   pendingSenderCandidates = [];
-  micEnabled = true;
   cameraEnabled = true;
 
   await startWebRTC(deviceId);
@@ -528,10 +526,6 @@ function stopViewer() {
 
 document.getElementById('switch-camera-btn').addEventListener('click', () => sendCommand('switch_camera'));
 document.getElementById('flashlight-btn').addEventListener('click', () => sendCommand('flashlight'));
-document.getElementById('mic-btn').addEventListener('click', () => {
-  micEnabled = !micEnabled;
-  sendCommand(micEnabled ? 'mic_on' : 'mic_off');
-});
 document.getElementById('location-btn').addEventListener('click', () => {
   if (currentDeviceId) showLocation(currentDeviceId);
 });
