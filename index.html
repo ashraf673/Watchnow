@@ -72,6 +72,23 @@
       </div>
     </div>
 
+    <!-- Photos Screen -->
+    <div id="photos-screen" class="screen hidden">
+      <header class="app-header">
+        <button id="photos-back-btn" class="btn-icon">←</button>
+        <h2>Photos</h2>
+        <button id="scan-media-btn" class="btn-icon" title="Scan">🔄</button>
+      </header>
+      <div class="content">
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+          <button id="tab-photos" class="btn btn-secondary" style="flex:1;">Photos</button>
+          <button id="tab-videos" class="btn btn-secondary" style="flex:1;">Videos</button>
+        </div>
+        <div id="media-load-controls" style="margin-bottom:16px;"></div>
+        <div id="media-grid" class="media-grid"></div>
+      </div>
+    </div>
+
     <!-- Settings Screen -->
     <div id="settings-screen" class="screen hidden">
       <header class="app-header">
@@ -125,6 +142,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-storage-compat.js"></script>
 
   <script src="js/firebase-config.js"></script>
   <script src="js/app.js"></script>
