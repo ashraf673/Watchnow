@@ -6,6 +6,7 @@
 const loginScreen = document.getElementById('login-screen');
 const devicesScreen = document.getElementById('devices-screen');
 const deviceDetailsScreen = document.getElementById('device-details-screen');
+const photosScreen = document.getElementById('photos-screen');
 const settingsScreen = document.getElementById('settings-screen');
 const viewerScreen = document.getElementById('viewer-screen');
 const googleLoginBtn = document.getElementById('google-login-btn');
@@ -18,6 +19,7 @@ const settingsBtn = document.getElementById('settings-btn');
 const settingsBackBtn = document.getElementById('settings-back-btn');
 const backBtn = document.getElementById('back-btn');
 const detailsBackBtn = document.getElementById('details-back-btn');
+const photosBackBtn = document.getElementById('photos-back-btn');
 const devicesList = document.getElementById('devices-list');
 const emptyState = document.getElementById('empty-state');
 const activationCodeDisplay = document.getElementById('activation-code-display');
@@ -27,6 +29,8 @@ const noStream = document.getElementById('no-stream');
 const viewerTitle = document.getElementById('viewer-title');
 const detailsTitle = document.getElementById('details-title');
 const deviceStatusInfo = document.getElementById('device-status-info');
+const mediaGrid = document.getElementById('media-grid');
+const mediaLoadControls = document.getElementById('media-load-controls');
 
 // State
 let currentUser = null;
@@ -40,6 +44,8 @@ let pendingSenderCandidates = [];
 let cameraEnabled = true;
 let offerListener = null;
 let senderCandidatesListener = null;
+let currentMediaTab = 'image';
+let mediaItems = [];
 
 function showStatus(msg) {
   const existing = document.getElementById('status-msg');
@@ -74,6 +80,22 @@ function getSignalBars(bars) {
   const filled = '▮'.repeat(Math.max(0, Math.min(4, bars || 0)));
   const empty = '▯'.repeat(4 - (bars || 0));
   return filled + empty;
+}
+
+function formatSize(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDuration(ms) {
+  if (!ms) return '0:00';
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return min + ':' + sec.toString().padStart(2, '0');
 }
 
 // =====================================================
@@ -223,12 +245,14 @@ function showScreen(name) {
   loginScreen.classList.add('hidden');
   devicesScreen.classList.add('hidden');
   deviceDetailsScreen.classList.add('hidden');
+  photosScreen.classList.add('hidden');
   settingsScreen.classList.add('hidden');
   viewerScreen.classList.add('hidden');
 
   if (name === 'login') loginScreen.classList.remove('hidden');
   if (name === 'devices') devicesScreen.classList.remove('hidden');
   if (name === 'details') deviceDetailsScreen.classList.remove('hidden');
+  if (name === 'photos') photosScreen.classList.remove('hidden');
   if (name === 'settings') settingsScreen.classList.remove('hidden');
   if (name === 'viewer') viewerScreen.classList.remove('hidden');
 }
@@ -240,6 +264,10 @@ backBtn.addEventListener('click', () => {
 
 detailsBackBtn.addEventListener('click', () => {
   showScreen('devices');
+});
+
+photosBackBtn.addEventListener('click', () => {
+  showScreen('details');
 });
 
 // =====================================================
@@ -365,12 +393,113 @@ document.getElementById('open-location-btn').addEventListener('click', () => {
 });
 
 document.getElementById('open-photos-btn').addEventListener('click', () => {
-  showStatus('Photos feature coming soon');
+  if (currentDeviceId) openPhotos();
 });
 
 document.getElementById('open-files-btn').addEventListener('click', () => {
   showStatus('File Manager coming soon');
 });
+
+document.getElementById('scan-media-btn').addEventListener('click', () => {
+  if (currentDeviceId) {
+    sendCommand('scan_media');
+    showStatus('Scanning media on device...');
+  }
+});
+
+document.getElementById('tab-photos').addEventListener('click', () => {
+  currentMediaTab = 'image';
+  renderMediaGrid();
+});
+
+document.getElementById('tab-videos').addEventListener('click', () => {
+  currentMediaTab = 'video';
+  renderMediaGrid();
+});
+
+function openPhotos() {
+  showScreen('photos');
+  loadMedia();
+  updateLoadControls();
+}
+
+function updateLoadControls() {
+  const isMobile = currentDeviceData?.networkType === 'mobile';
+  mediaLoadControls.innerHTML = '';
+
+  if (isMobile) {
+    if (currentMediaTab === 'image') {
+      mediaLoadControls.innerHTML = '<button class="btn btn-secondary" id="load-thumbs-btn">Load Thumbnails</button>';
+    } else {
+      mediaLoadControls.innerHTML = `
+        <button class="btn btn-secondary" style="background:#ef4444;color:white;margin-right:8px;" id="load-video-thumbs-btn">Show Thumbnail</button>
+        <button class="btn btn-secondary" style="background:#ef4444;color:white;" id="load-video-preview-btn">Preview</button>
+      `;
+    }
+  }
+}
+
+function loadMedia() {
+  if (!currentUid || !currentDeviceId) return;
+  database.ref(`users/${currentUid}/devices/${currentDeviceId}/media`).on('value', (snap) => {
+    mediaItems = [];
+    snap.forEach(child => {
+      mediaItems.push({ id: child.key, ...child.val() });
+    });
+    renderMediaGrid();
+  });
+}
+
+function renderMediaGrid() {
+  mediaGrid.innerHTML = '';
+  const filtered = mediaItems.filter(m => m.type === currentMediaTab);
+
+  if (filtered.length === 0) {
+    mediaGrid.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:40px;">No media yet. Tap scan to load.</p>';
+    return;
+  }
+
+  const isWifi = currentDeviceData?.networkType === 'wifi';
+
+  filtered.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'media-item';
+    div.style.cssText = 'position:relative;aspect-ratio:1;background:#1e293b;border-radius:8px;overflow:hidden;cursor:pointer;';
+
+    if (item.thumbnail && (isWifi || currentMediaTab === 'image')) {
+      div.innerHTML = `<img src="${item.thumbnail}" style="width:100%;height:100%;object-fit:cover;" />`;
+    } else {
+      div.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:12px;">${item.name}</div>`;
+    }
+
+    const sizeLabel = document.createElement('div');
+    sizeLabel.style.cssText = 'position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.7);color:white;font-size:10px;padding:2px 4px;border-radius:4px;';
+    sizeLabel.textContent = formatSize(item.size);
+    div.appendChild(sizeLabel);
+
+    if (item.type === 'video') {
+      const durLabel = document.createElement('div');
+      durLabel.style.cssText = 'position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.7);color:white;font-size:10px;padding:2px 4px;border-radius:4px;';
+      durLabel.textContent = formatDuration(item.duration);
+      div.appendChild(durLabel);
+    }
+
+    div.addEventListener('click', () => showMediaOptions(item));
+    mediaGrid.appendChild(div);
+  });
+}
+
+function showMediaOptions(item) {
+  const isMobile = currentDeviceData?.networkType === 'mobile';
+  const size = formatSize(item.size);
+  let msg = `Download ${item.name}? (${size})`;
+  if (isMobile) {
+    msg = `The sender phone is using mobile data. Do you want to download this file? (${size})`;
+  }
+  if (confirm(msg)) {
+    showStatus('Download requested (full file transfer coming next)');
+  }
+}
 
 function showLocation(deviceId) {
   if (!currentUid) return;
