@@ -5,6 +5,7 @@
 // DOM Elements
 const loginScreen = document.getElementById('login-screen');
 const devicesScreen = document.getElementById('devices-screen');
+const deviceDetailsScreen = document.getElementById('device-details-screen');
 const settingsScreen = document.getElementById('settings-screen');
 const viewerScreen = document.getElementById('viewer-screen');
 const googleLoginBtn = document.getElementById('google-login-btn');
@@ -16,6 +17,7 @@ const logoutBtn = document.getElementById('logout-btn');
 const settingsBtn = document.getElementById('settings-btn');
 const settingsBackBtn = document.getElementById('settings-back-btn');
 const backBtn = document.getElementById('back-btn');
+const detailsBackBtn = document.getElementById('details-back-btn');
 const devicesList = document.getElementById('devices-list');
 const emptyState = document.getElementById('empty-state');
 const activationCodeDisplay = document.getElementById('activation-code-display');
@@ -23,11 +25,14 @@ const copyCodeBtn = document.getElementById('copy-code-btn');
 const remoteVideo = document.getElementById('remote-video');
 const noStream = document.getElementById('no-stream');
 const viewerTitle = document.getElementById('viewer-title');
+const detailsTitle = document.getElementById('details-title');
+const deviceStatusInfo = document.getElementById('device-status-info');
 
 // State
 let currentUser = null;
 let currentUid = null;
 let currentDeviceId = null;
+let currentDeviceData = null;
 let peerConnection = null;
 let signalingRef = null;
 let inboundStream = null;
@@ -63,6 +68,12 @@ function sendCommand(command) {
   if (!currentDeviceId) return;
   database.ref(`commands/${currentDeviceId}`).push(command);
   showStatus(command.replace('_', ' '));
+}
+
+function getSignalBars(bars) {
+  const filled = '▮'.repeat(Math.max(0, Math.min(4, bars || 0)));
+  const empty = '▯'.repeat(4 - (bars || 0));
+  return filled + empty;
 }
 
 // =====================================================
@@ -211,17 +222,23 @@ copyCodeBtn.addEventListener('click', () => {
 function showScreen(name) {
   loginScreen.classList.add('hidden');
   devicesScreen.classList.add('hidden');
+  deviceDetailsScreen.classList.add('hidden');
   settingsScreen.classList.add('hidden');
   viewerScreen.classList.add('hidden');
 
   if (name === 'login') loginScreen.classList.remove('hidden');
   if (name === 'devices') devicesScreen.classList.remove('hidden');
+  if (name === 'details') deviceDetailsScreen.classList.remove('hidden');
   if (name === 'settings') settingsScreen.classList.remove('hidden');
   if (name === 'viewer') viewerScreen.classList.remove('hidden');
 }
 
 backBtn.addEventListener('click', () => {
   stopViewer();
+  showScreen('details');
+});
+
+detailsBackBtn.addEventListener('click', () => {
   showScreen('devices');
 });
 
@@ -287,39 +304,31 @@ function createDeviceCard(device, isDisabled) {
   const card = document.createElement('div');
   card.className = 'device-card';
   if (isDisabled) card.style.opacity = '0.6';
+  card.style.cursor = 'pointer';
 
-  const lastSeen = device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Unknown';
-  const status = isDisabled ? 'Disabled' : (device.online ? '🟢 Online' : '⚫ Offline');
+  const battery = device.battery != null ? device.battery + '%' : '--';
+  const networkType = device.networkType || 'unknown';
+  const bars = device.signalBars || 0;
+  const networkIcon = networkType === 'wifi' ? '📶' : (networkType === 'mobile' ? '📶' : '');
+  const signal = getSignalBars(bars);
+
+  const statusText = isDisabled ? 'Disabled' : (device.online ? 'Online' : 'Offline');
 
   card.innerHTML = `
     <div class="device-info">
       <h3>${device.name || 'Unknown Device'}</h3>
-      <p>${status} • ${lastSeen}</p>
+      <p>${statusText}</p>
+      <p style="font-size:13px; margin-top:4px;">${networkIcon} ${signal} &nbsp; 🔋 ${battery}</p>
     </div>
     <div class="device-actions">
-      ${isDisabled ? '' : `
-        <button class="action-btn" data-action="camera" title="Live Camera">📷</button>
-        <button class="action-btn" data-action="location" title="Location">📍</button>
-      `}
       <button class="action-btn menu-btn" title="More">⋮</button>
     </div>
   `;
 
-  const camBtn = card.querySelector('[data-action="camera"]');
-  if (camBtn) {
-    camBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openViewer(device.id, device.name || 'Device');
-    });
-  }
-
-  const locBtn = card.querySelector('[data-action="location"]');
-  if (locBtn) {
-    locBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      showLocation(device.id);
-    });
-  }
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('.menu-btn')) return;
+    openDeviceDetails(device);
+  });
 
   const menuBtn = card.querySelector('.menu-btn');
   menuBtn.addEventListener('click', (e) => {
@@ -329,6 +338,39 @@ function createDeviceCard(device, isDisabled) {
 
   return card;
 }
+
+function openDeviceDetails(device) {
+  currentDeviceId = device.id;
+  currentDeviceData = device;
+  detailsTitle.textContent = device.name || 'Device';
+
+  const battery = device.battery != null ? device.battery + '%' : 'Unknown';
+  const network = device.networkType === 'wifi' ? 'Wi-Fi' : (device.networkType === 'mobile' ? 'Mobile Data' : 'Unknown');
+  const bars = getSignalBars(device.signalBars || 0);
+
+  deviceStatusInfo.innerHTML = `
+    <div><strong>Network:</strong> ${network} ${bars}</div>
+    <div style="margin-top:8px;"><strong>Battery:</strong> ${battery}</div>
+  `;
+
+  showScreen('details');
+}
+
+document.getElementById('open-camera-btn').addEventListener('click', () => {
+  if (currentDeviceId) openViewer(currentDeviceId, currentDeviceData?.name || 'Device');
+});
+
+document.getElementById('open-location-btn').addEventListener('click', () => {
+  if (currentDeviceId) showLocation(currentDeviceId);
+});
+
+document.getElementById('open-photos-btn').addEventListener('click', () => {
+  showStatus('Photos feature coming soon');
+});
+
+document.getElementById('open-files-btn').addEventListener('click', () => {
+  showStatus('File Manager coming soon');
+});
 
 function showLocation(deviceId) {
   if (!currentUid) return;
@@ -403,7 +445,6 @@ function setDeviceDisabled(deviceId, disabled) {
 // =====================================================
 
 async function openViewer(deviceId, deviceName) {
-  // Fully clean previous session first
   await stopViewer();
 
   currentDeviceId = deviceId;
@@ -415,13 +456,8 @@ async function openViewer(deviceId, deviceName) {
   pendingSenderCandidates = [];
   cameraEnabled = true;
 
-  // Clear old signaling data
   await database.ref(`signaling/${deviceId}`).remove();
-
-  // Tell Partypark to start a fresh stream
   await database.ref(`commands/${deviceId}`).push('start_stream');
-
-  // Small delay so Partypark has time to prepare
   await new Promise(r => setTimeout(r, 600));
 
   await startWebRTC(deviceId);
@@ -477,7 +513,6 @@ async function startWebRTC(deviceId) {
 
   signalingRef = database.ref(`signaling/${deviceId}`);
 
-  // Offer listener
   offerListener = signalingRef.child('offer').on('value', async (snap) => {
     const offer = snap.val();
     if (!offer || !peerConnection) return;
@@ -507,7 +542,6 @@ async function startWebRTC(deviceId) {
     }
   });
 
-  // Sender candidates listener
   senderCandidatesListener = signalingRef.child('senderCandidates').on('child_added', (snap) => {
     const data = snap.val();
     if (!data || !peerConnection) return;
@@ -555,7 +589,6 @@ async function stopViewer() {
   remoteVideo.srcObject = null;
   inboundStream = null;
   pendingSenderCandidates = [];
-  currentDeviceId = null;
   noStream.style.display = 'flex';
   noStream.innerHTML = '<p>Disconnected</p>';
 }
