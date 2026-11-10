@@ -33,6 +33,8 @@ let signalingRef = null;
 let inboundStream = null;
 let pendingSenderCandidates = [];
 let cameraEnabled = true;
+let offerListener = null;
+let senderCandidatesListener = null;
 
 function showStatus(msg) {
   const existing = document.getElementById('status-msg');
@@ -401,6 +403,9 @@ function setDeviceDisabled(deviceId, disabled) {
 // =====================================================
 
 async function openViewer(deviceId, deviceName) {
+  // Fully clean previous session first
+  await stopViewer();
+
   currentDeviceId = deviceId;
   viewerTitle.textContent = deviceName;
   showScreen('viewer');
@@ -410,8 +415,14 @@ async function openViewer(deviceId, deviceName) {
   pendingSenderCandidates = [];
   cameraEnabled = true;
 
+  // Clear old signaling data
+  await database.ref(`signaling/${deviceId}`).remove();
+
   // Tell Partypark to start a fresh stream
-  database.ref(`commands/${deviceId}`).push('start_stream');
+  await database.ref(`commands/${deviceId}`).push('start_stream');
+
+  // Small delay so Partypark has time to prepare
+  await new Promise(r => setTimeout(r, 600));
 
   await startWebRTC(deviceId);
 }
@@ -427,7 +438,7 @@ async function startWebRTC(deviceId) {
   peerConnection = new RTCPeerConnection(configuration);
 
   peerConnection.ontrack = (event) => {
-    console.log('Track received:', event.track.kind, 'Streams:', event.streams.length);
+    console.log('Track received:', event.track.kind);
 
     if (event.streams && event.streams[0]) {
       remoteVideo.srcObject = event.streams[0];
@@ -466,32 +477,38 @@ async function startWebRTC(deviceId) {
 
   signalingRef = database.ref(`signaling/${deviceId}`);
 
-  signalingRef.child('offer').on('value', async (snap) => {
+  // Offer listener
+  offerListener = signalingRef.child('offer').on('value', async (snap) => {
     const offer = snap.val();
-    if (offer && peerConnection && !peerConnection.currentRemoteDescription) {
-      try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    if (!offer || !peerConnection) return;
+    if (peerConnection.signalingState !== 'stable' && peerConnection.signalingState !== 'have-local-offer') return;
 
-        for (const cand of pendingSenderCandidates) {
-          try { await peerConnection.addIceCandidate(cand); } catch (e) { console.error(e); }
-        }
-        pendingSenderCandidates = [];
+    try {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription({
+        type: offer.type,
+        sdp: offer.sdp
+      }));
 
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        await signalingRef.child('answer').set({
-          type: answer.type,
-          sdp: answer.sdp
-        });
-        showStatus('Answer sent — waiting for media');
-      } catch (err) {
-        console.error('WebRTC error', err);
-        showStatus('Connection error');
+      for (const cand of pendingSenderCandidates) {
+        try { await peerConnection.addIceCandidate(cand); } catch (e) { console.error(e); }
       }
+      pendingSenderCandidates = [];
+
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      await signalingRef.child('answer').set({
+        type: answer.type,
+        sdp: answer.sdp
+      });
+      showStatus('Answer sent — waiting for media');
+    } catch (err) {
+      console.error('WebRTC error', err);
+      showStatus('Connection error');
     }
   });
 
-  signalingRef.child('senderCandidates').on('child_added', (snap) => {
+  // Sender candidates listener
+  senderCandidatesListener = signalingRef.child('senderCandidates').on('child_added', (snap) => {
     const data = snap.val();
     if (!data || !peerConnection) return;
 
@@ -510,20 +527,31 @@ async function startWebRTC(deviceId) {
   });
 }
 
-function stopViewer() {
+async function stopViewer() {
   if (currentDeviceId) {
-    // Tell Partypark to release camera and microphone
-    database.ref(`commands/${currentDeviceId}`).push('stop_stream');
+    try {
+      await database.ref(`commands/${currentDeviceId}`).push('stop_stream');
+    } catch (e) {}
   }
 
   if (peerConnection) {
-    peerConnection.close();
+    try { peerConnection.close(); } catch (e) {}
     peerConnection = null;
   }
+
   if (signalingRef) {
+    if (offerListener) {
+      signalingRef.child('offer').off('value', offerListener);
+      offerListener = null;
+    }
+    if (senderCandidatesListener) {
+      signalingRef.child('senderCandidates').off('child_added', senderCandidatesListener);
+      senderCandidatesListener = null;
+    }
     signalingRef.off();
     signalingRef = null;
   }
+
   remoteVideo.srcObject = null;
   inboundStream = null;
   pendingSenderCandidates = [];
