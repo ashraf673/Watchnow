@@ -289,6 +289,31 @@ body {
   line-height: 1.4;
 }
 
+/* Feature Grid */
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.feature-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 12px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.feature-btn:active {
+  background: #243044;
+  transform: scale(0.98);
+}
+
 /* ===== Viewer Screen ===== */
 .viewer-header {
   background: rgba(15, 23, 42, 0.9);
