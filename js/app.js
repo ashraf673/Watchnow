@@ -410,6 +410,9 @@ async function openViewer(deviceId, deviceName) {
   pendingSenderCandidates = [];
   cameraEnabled = true;
 
+  // Tell Partypark to start a fresh stream
+  database.ref(`commands/${deviceId}`).push('start_stream');
+
   await startWebRTC(deviceId);
 }
 
@@ -508,6 +511,11 @@ async function startWebRTC(deviceId) {
 }
 
 function stopViewer() {
+  if (currentDeviceId) {
+    // Tell Partypark to release camera and microphone
+    database.ref(`commands/${currentDeviceId}`).push('stop_stream');
+  }
+
   if (peerConnection) {
     peerConnection.close();
     peerConnection = null;
