@@ -314,6 +314,13 @@ body {
   transform: scale(0.98);
 }
 
+/* Media Grid */
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
 /* ===== Viewer Screen ===== */
 .viewer-header {
   background: rgba(15, 23, 42, 0.9);
