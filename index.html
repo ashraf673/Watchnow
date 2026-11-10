@@ -39,7 +39,7 @@
         <h2>Watchnow</h2>
         <div>
           <button id="settings-btn" class="btn-icon" title="Settings">⚙️</button>
-          <button id="logout-btn" class="btn-icon" title="Logout">⎋</button>
+          <button id="logout-btn" class="btn-icon" title="Logout">⏏</button>
         </div>
       </header>
 
@@ -50,6 +50,24 @@
             <p>No devices found</p>
             <small>Install Partypark on another phone and activate with your code</small>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Device Details Screen -->
+    <div id="device-details-screen" class="screen hidden">
+      <header class="app-header">
+        <button id="details-back-btn" class="btn-icon">←</button>
+        <h2 id="details-title">Device</h2>
+        <div></div>
+      </header>
+      <div class="content">
+        <div id="device-status-info" class="card" style="margin-bottom:20px;"></div>
+        <div class="feature-grid">
+          <button class="feature-btn" id="open-camera-btn">📷<br>Camera</button>
+          <button class="feature-btn" id="open-location-btn">📍<br>Location</button>
+          <button class="feature-btn" id="open-photos-btn">🖼️<br>Photos</button>
+          <button class="feature-btn" id="open-files-btn">📁<br>File Manager</button>
         </div>
       </div>
     </div>
